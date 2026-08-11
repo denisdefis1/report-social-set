@@ -234,20 +234,6 @@
   <div class="creatives-grid" id="creatives-grid"></div>
   <button class="show-more-btn" id="creatives-more"></button>
 
-  <div class="modal-overlay" id="demo-popup-overlay">
-    <div class="modal-box" style="grid-template-columns: 1fr; max-width: 420px;">
-      <div class="modal-content" style="padding: 22px;">
-        <button class="modal-close" id="demo-popup-close">✕</button>
-        <div class="modal-title" id="demo-popup-title"></div>
-        <div class="modal-sub">Страны внутри этой возрастной группы за выбранный период</div>
-        <table>
-          <thead><tr><th>Страна</th><th class="num">Расход</th><th class="num">Переписки</th><th class="num">Цена</th></tr></thead>
-          <tbody id="demo-popup-body"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
   <div class="modal-overlay" id="modal-overlay">
     <div class="modal-box">
       <div class="modal-img" id="modal-img"></div>
@@ -671,17 +657,14 @@
         const [age, gender] = g.key.split('|');
         const t = sumDaily(filterDaily(g.daily, currentSince, currentUntil));
         const genderLabel = gender === 'male' ? 'муж' : gender === 'female' ? 'жен' : gender;
-        return { age, gender, name: `${age} · ${genderLabel}`, ...t };
+        return { name: `${age} · ${genderLabel}`, ...t };
       }).filter(r => r.spend > 0 || r.messages > 0);
       rows = sortByMode(rows, demoSortMode);
 
       const visible = demoExpanded ? rows : rows.slice(0, 8);
       document.getElementById('demo-body').innerHTML = visible.length
-        ? visible.map((r, i) => `<tr class="clickable-row" data-idx="${i}"><td>${r.name} <span style="color:var(--muted);font-size:11px;">▸ страны</span></td><td class="num">${fmtMoney(r.spend)}</td><td class="num">${fmtNum(r.messages)}</td><td class="num">${fmtMoney(r.costPerMessage)}</td><td class="num">${fmtPct(r.ctr)}</td></tr>`).join('')
+        ? visible.map(r => `<tr><td>${r.name}</td><td class="num">${fmtMoney(r.spend)}</td><td class="num">${fmtNum(r.messages)}</td><td class="num">${fmtMoney(r.costPerMessage)}</td><td class="num">${fmtPct(r.ctr)}</td></tr>`).join('')
         : `<tr><td colspan="5" class="empty">Нет данных за выбранный период</td></tr>`;
-      document.querySelectorAll('#demo-body .clickable-row').forEach(el => {
-        el.addEventListener('click', () => openDemoCountryPopup(visible[+el.dataset.idx]));
-      });
 
       const moreBtn = document.getElementById('demo-more');
       if (rows.length > 8) {
@@ -690,32 +673,6 @@
         moreBtn.onclick = () => { demoExpanded = !demoExpanded; renderDemo(); };
       } else { moreBtn.style.display = 'none'; }
     }
-
-    function openDemoCountryPopup(row) {
-      const entries = currentCamp === 'all'
-        ? REPORT.age_groups
-        : REPORT.age_groups.filter(e => campaignCampById[e.campaign_id] === currentCamp);
-      const matching = entries.filter(e => e.age === row.age && e.gender === row.gender);
-
-      const byCountry = {};
-      matching.forEach(e => {
-        byCountry[e.country] = byCountry[e.country] || [];
-        byCountry[e.country] = byCountry[e.country].concat(e.daily);
-      });
-
-      const countryRows = Object.entries(byCountry).map(([country, daily]) => {
-        const t = sumDaily(filterDaily(daily, currentSince, currentUntil));
-        return { country, ...t };
-      }).filter(r => r.spend > 0 || r.messages > 0).sort((a, b) => b.messages - a.messages);
-
-      document.getElementById('demo-popup-title').textContent = row.name;
-      document.getElementById('demo-popup-body').innerHTML = countryRows.length
-        ? countryRows.map(r => `<tr><td>${r.country}</td><td class="num">${fmtMoney(r.spend)}</td><td class="num">${fmtNum(r.messages)}</td><td class="num">${fmtMoney(r.costPerMessage)}</td></tr>`).join('')
-        : `<tr><td colspan="4" class="empty">Нет данных по странам за выбранный период</td></tr>`;
-      document.getElementById('demo-popup-overlay').classList.add('open');
-    }
-    document.getElementById('demo-popup-close').addEventListener('click', () => document.getElementById('demo-popup-overlay').classList.remove('open'));
-    document.getElementById('demo-popup-overlay').addEventListener('click', (e) => { if (e.target.id === 'demo-popup-overlay') document.getElementById('demo-popup-overlay').classList.remove('open'); });
 
     function renderGeo() {
       renderRateToggle('geo-toggle', geoSortMode, (k) => { geoSortMode = k; renderGeo(); });

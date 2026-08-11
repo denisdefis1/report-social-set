@@ -233,26 +233,28 @@ for c in creatives:
     c["thumbnail_url"] = thumb_by_ad_id.get(c["id"])
 
 # ============================================================
-# 5. Демография (возраст + пол + страна) — на уровне кампаний, чтобы фильтровать
-# по кемпу и показывать разбивку по странам внутри каждой возрастной группы
+# 5. Демография (возраст + пол) — на уровне кампаний, чтобы фильтровать по кемпу.
+# Meta не разрешает комбинировать age+gender+country вместе с action-метриками
+# (пробовали — жёсткая ошибка "(#100) Current combination... is invalid"), поэтому
+# страны внутри демографии не показываем — только сама демография.
 # ============================================================
 age_raw = api_get_chunked(f"{ACCOUNT_ID}/insights", {
     'time_increment': 1,
     'level': 'campaign',
-    'breakdowns': 'age,gender,country',
+    'breakdowns': 'age,gender',
     'fields': 'campaign_id,spend,clicks,inline_link_clicks,impressions,actions',
     'limit': 500,
 }, start_date, end_date)
 
 demo_by_bucket = {}
 for r in age_raw:
-    bucket = (r.get('campaign_id'), r.get('age', 'unknown'), r.get('gender', 'unknown'), r.get('country', 'unknown'))
+    bucket = (r.get('campaign_id'), r.get('age', 'unknown'), r.get('gender', 'unknown'))
     demo_by_bucket.setdefault(bucket, {})[r['date_start']] = r
 
 age_groups = []
-for (campaign_id, age, gender, country), by_date in demo_by_bucket.items():
+for (campaign_id, age, gender), by_date in demo_by_bucket.items():
     daily = [to_day_row(r) for _, r in sorted(by_date.items())]
-    age_groups.append({"campaign_id": campaign_id, "age": age, "gender": gender, "country": country, "daily": daily})
+    age_groups.append({"campaign_id": campaign_id, "age": age, "gender": gender, "daily": daily})
 
 # ============================================================
 # 6. Устройства — на уровне кампаний

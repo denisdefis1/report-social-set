@@ -197,15 +197,18 @@
 
   <h2 class="section-title">Демография</h2>
   <div class="section-sub">Возраст и пол</div>
+  <div class="toggle-row" id="demo-toggle"></div>
   <div class="chart-card" style="padding:8px 12px;">
     <table>
       <thead><tr><th>Возраст / пол</th><th class="num">Расход</th><th class="num">Переписки</th><th class="num">Цена</th><th class="num">CTR</th></tr></thead>
       <tbody id="demo-body"></tbody>
     </table>
+    <button class="show-more-btn" id="demo-more"></button>
   </div>
 
   <h2 class="section-title">Страны и регионы</h2>
   <div class="section-sub">У Meta нет разбивки по городам — region это ближайший доступный уровень (область/штат)</div>
+  <div class="toggle-row" id="geo-toggle"></div>
   <div class="chart-card" style="padding:8px 12px;">
     <table>
       <thead><tr><th>Страна / регион</th><th class="num">Расход</th><th class="num">Переписки</th><th class="num">Цена</th></tr></thead>
@@ -215,11 +218,13 @@
   </div>
 
   <h2 class="section-title">Устройства</h2>
+  <div class="toggle-row" id="devices-toggle"></div>
   <div class="chart-card" style="padding:8px 12px;">
     <table>
       <thead><tr><th>Устройство</th><th class="num">Расход</th><th class="num">Переписки</th><th class="num">Цена</th><th class="num">CTR</th></tr></thead>
       <tbody id="devices-body"></tbody>
     </table>
+    <button class="show-more-btn" id="devices-more"></button>
   </div>
 
   <h2 class="section-title">Все креативы</h2>
@@ -287,6 +292,7 @@
     let REPORT = null;
     let charts = {};
     let currentCamp = 'all';
+    let campaignCampById = {};
     let currentSince = null, currentUntil = null, currentPresetKey = '30d';
     let campaignsStatusFilter = 'active';
     let campaignsExpanded = false;
@@ -301,6 +307,8 @@
       REPORT = await res.json();
 
       document.getElementById('updated').textContent = 'данные на ' + REPORT.last_updated;
+
+      REPORT.campaigns.forEach(c => { campaignCampById[c.id] = c.camp; });
 
       renderCampSwitch();
       const lastDate = toLocalISO(new Date());
@@ -606,23 +614,74 @@
     document.getElementById('modal-close').addEventListener('click', () => document.getElementById('modal-overlay').classList.remove('open'));
     document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') document.getElementById('modal-overlay').classList.remove('open'); });
 
-    function renderDemo() {
-      const rows = REPORT.age_groups.map(g => {
-        const t = sumDaily(filterDaily(g.daily, currentSince, currentUntil));
-        const genderLabel = g.gender === 'male' ? 'муж' : g.gender === 'female' ? 'жен' : g.gender;
-        return { name: `${g.age} · ${genderLabel}`, ...t };
-      }).filter(r => r.spend > 0 || r.messages > 0).sort((a, b) => b.messages - a.messages);
+    function groupByCampAndBucket(entries, keyFn) {
+      const filtered = currentCamp === 'all'
+        ? entries
+        : entries.filter(e => campaignCampById[e.campaign_id] === currentCamp);
+      const byKey = {};
+      filtered.forEach(e => {
+        const key = keyFn(e);
+        if (!byKey[key]) byKey[key] = { key, daily: [] };
+        byKey[key].daily = byKey[key].daily.concat(e.daily);
+      });
+      return Object.values(byKey);
+    }
 
-      document.getElementById('demo-body').innerHTML = rows.length
-        ? rows.map(r => `<tr><td>${r.name}</td><td class="num">${fmtMoney(r.spend)}</td><td class="num">${fmtNum(r.messages)}</td><td class="num">${fmtMoney(r.costPerMessage)}</td><td class="num">${fmtPct(r.ctr)}</td></tr>`).join('')
+    function sortByMode(rows, mode) {
+      if (mode === 'cost') {
+        const withMsg = rows.filter(r => r.messages > 0).sort((a, b) => a.costPerMessage - b.costPerMessage);
+        const withoutMsg = rows.filter(r => r.messages === 0).sort((a, b) => b.spend - a.spend);
+        return [...withMsg, ...withoutMsg];
+      }
+      return [...rows].sort((a, b) => b.messages - a.messages);
+    }
+
+    function renderRateToggle(elId, mode, onSelect) {
+      document.getElementById(elId).innerHTML = `
+        <button class="toggle-btn ${mode === 'messages' ? 'active' : ''}" data-k="messages">По количеству</button>
+        <button class="toggle-btn ${mode === 'cost' ? 'active' : ''}" data-k="cost">По цене</button>`;
+      document.querySelectorAll(`#${elId} .toggle-btn`).forEach(b => b.addEventListener('click', () => onSelect(b.dataset.k)));
+    }
+
+    let demoSortMode = 'messages', demoExpanded = false;
+    let geoSortMode = 'messages';
+    let devicesSortMode = 'messages', devicesExpanded = false;
+
+    function renderDemo() {
+      renderRateToggle('demo-toggle', demoSortMode, (k) => { demoSortMode = k; renderDemo(); });
+
+      const grouped = groupByCampAndBucket(REPORT.age_groups, e => `${e.age}|${e.gender}`);
+      let rows = grouped.map(g => {
+        const [age, gender] = g.key.split('|');
+        const t = sumDaily(filterDaily(g.daily, currentSince, currentUntil));
+        const genderLabel = gender === 'male' ? 'муж' : gender === 'female' ? 'жен' : gender;
+        return { name: `${age} · ${genderLabel}`, ...t };
+      }).filter(r => r.spend > 0 || r.messages > 0);
+      rows = sortByMode(rows, demoSortMode);
+
+      const visible = demoExpanded ? rows : rows.slice(0, 8);
+      document.getElementById('demo-body').innerHTML = visible.length
+        ? visible.map(r => `<tr><td>${r.name}</td><td class="num">${fmtMoney(r.spend)}</td><td class="num">${fmtNum(r.messages)}</td><td class="num">${fmtMoney(r.costPerMessage)}</td><td class="num">${fmtPct(r.ctr)}</td></tr>`).join('')
         : `<tr><td colspan="5" class="empty">Нет данных за выбранный период</td></tr>`;
+
+      const moreBtn = document.getElementById('demo-more');
+      if (rows.length > 8) {
+        moreBtn.style.display = 'block';
+        moreBtn.textContent = demoExpanded ? 'Показать меньше' : `Показать ещё ${rows.length - 8}`;
+        moreBtn.onclick = () => { demoExpanded = !demoExpanded; renderDemo(); };
+      } else { moreBtn.style.display = 'none'; }
     }
 
     function renderGeo() {
-      const rows = REPORT.geo.map(g => {
+      renderRateToggle('geo-toggle', geoSortMode, (k) => { geoSortMode = k; renderGeo(); });
+
+      const grouped = groupByCampAndBucket(REPORT.geo, e => `${e.country}|${e.region}`);
+      let rows = grouped.map(g => {
+        const [country, region] = g.key.split('|');
         const t = sumDaily(filterDaily(g.daily, currentSince, currentUntil));
-        return { name: `${g.country} — ${g.region}`, ...t };
-      }).filter(r => r.spend > 0 || r.messages > 0).sort((a, b) => b.spend - a.spend);
+        return { name: `${country} — ${region}`, ...t };
+      }).filter(r => r.spend > 0 || r.messages > 0);
+      rows = sortByMode(rows, geoSortMode);
 
       const visible = geoExpanded ? rows : rows.slice(0, 10);
       document.getElementById('geo-body').innerHTML = visible.length
@@ -632,7 +691,7 @@
       const moreBtn = document.getElementById('geo-more');
       if (rows.length > 10) {
         moreBtn.style.display = 'block';
-        moreBtn.textContent = geoExpanded ? 'Свернуть' : `Показать ещё ${rows.length - 10}`;
+        moreBtn.textContent = geoExpanded ? 'Показать меньше' : `Показать ещё ${rows.length - 10}`;
         moreBtn.onclick = () => { geoExpanded = !geoExpanded; renderGeo(); };
       } else { moreBtn.style.display = 'none'; }
     }
@@ -640,14 +699,26 @@
     const DEVICE_LABELS = { mobile_app: 'Mobile App', desktop: 'Desktop', tablet: 'Tablet', connected_tv: 'Connected TV', unknown: 'Другое' };
 
     function renderDevices() {
-      const rows = REPORT.devices.map(d => {
-        const t = sumDaily(filterDaily(d.daily, currentSince, currentUntil));
-        return { name: DEVICE_LABELS[d.device] || d.device, ...t };
-      }).filter(r => r.spend > 0 || r.messages > 0).sort((a, b) => b.spend - a.spend);
+      renderRateToggle('devices-toggle', devicesSortMode, (k) => { devicesSortMode = k; renderDevices(); });
 
-      document.getElementById('devices-body').innerHTML = rows.length
-        ? rows.map(r => `<tr><td>${r.name}</td><td class="num">${fmtMoney(r.spend)}</td><td class="num">${fmtNum(r.messages)}</td><td class="num">${fmtMoney(r.costPerMessage)}</td><td class="num">${fmtPct(r.ctr)}</td></tr>`).join('')
+      const grouped = groupByCampAndBucket(REPORT.devices, e => e.device);
+      let rows = grouped.map(g => {
+        const t = sumDaily(filterDaily(g.daily, currentSince, currentUntil));
+        return { name: DEVICE_LABELS[g.key] || g.key, ...t };
+      }).filter(r => r.spend > 0 || r.messages > 0);
+      rows = sortByMode(rows, devicesSortMode);
+
+      const visible = devicesExpanded ? rows : rows.slice(0, 8);
+      document.getElementById('devices-body').innerHTML = visible.length
+        ? visible.map(r => `<tr><td>${r.name}</td><td class="num">${fmtMoney(r.spend)}</td><td class="num">${fmtNum(r.messages)}</td><td class="num">${fmtMoney(r.costPerMessage)}</td><td class="num">${fmtPct(r.ctr)}</td></tr>`).join('')
         : `<tr><td colspan="5" class="empty">Нет данных за выбранный период</td></tr>`;
+
+      const moreBtn = document.getElementById('devices-more');
+      if (rows.length > 8) {
+        moreBtn.style.display = 'block';
+        moreBtn.textContent = devicesExpanded ? 'Показать меньше' : `Показать ещё ${rows.length - 8}`;
+        moreBtn.onclick = () => { devicesExpanded = !devicesExpanded; renderDevices(); };
+      } else { moreBtn.style.display = 'none'; }
     }
 
     function renderCreatives() {

@@ -233,63 +233,67 @@ for c in creatives:
     c["thumbnail_url"] = thumb_by_ad_id.get(c["id"])
 
 # ============================================================
-# 5. Демография (возраст + пол)
+# 5. Демография (возраст + пол) — на уровне кампаний, чтобы фильтровать по кемпу
 # ============================================================
 age_raw = api_get_chunked(f"{ACCOUNT_ID}/insights", {
     'time_increment': 1,
+    'level': 'campaign',
     'breakdowns': 'age,gender',
-    'fields': 'spend,clicks,inline_link_clicks,impressions,actions',
+    'fields': 'campaign_id,spend,clicks,inline_link_clicks,impressions,actions',
     'limit': 500,
 }, start_date, end_date)
 
 demo_by_bucket = {}
 for r in age_raw:
-    bucket = (r.get('age', 'unknown'), r.get('gender', 'unknown'))
+    bucket = (r.get('campaign_id'), r.get('age', 'unknown'), r.get('gender', 'unknown'))
     demo_by_bucket.setdefault(bucket, {})[r['date_start']] = r
 
 age_groups = []
-for (age, gender), by_date in demo_by_bucket.items():
+for (campaign_id, age, gender), by_date in demo_by_bucket.items():
     daily = [to_day_row(r) for _, r in sorted(by_date.items())]
-    age_groups.append({"age": age, "gender": gender, "daily": daily})
+    age_groups.append({"campaign_id": campaign_id, "age": age, "gender": gender, "daily": daily})
 
 # ============================================================
-# 6. Устройства
+# 6. Устройства — на уровне кампаний
 # ============================================================
 device_raw = api_get_chunked(f"{ACCOUNT_ID}/insights", {
     'time_increment': 1,
+    'level': 'campaign',
     'breakdowns': 'impression_device',
-    'fields': 'spend,clicks,inline_link_clicks,impressions,actions',
+    'fields': 'campaign_id,spend,clicks,inline_link_clicks,impressions,actions',
     'limit': 500,
 }, start_date, end_date)
 
 device_by_bucket = {}
 for r in device_raw:
-    device_by_bucket.setdefault(r.get('impression_device', 'unknown'), {})[r['date_start']] = r
+    bucket = (r.get('campaign_id'), r.get('impression_device', 'unknown'))
+    device_by_bucket.setdefault(bucket, {})[r['date_start']] = r
 
 devices = []
-for device, by_date in device_by_bucket.items():
+for (campaign_id, device), by_date in device_by_bucket.items():
     daily = [to_day_row(r) for _, r in sorted(by_date.items())]
-    devices.append({"device": device, "daily": daily})
+    devices.append({"campaign_id": campaign_id, "device": device, "daily": daily})
 
 # ============================================================
-# 7. Страны и регионы (у Meta нет breakdown по городам)
+# 7. Страны и регионы — на уровне кампаний (у Meta нет breakdown по городам)
 # ============================================================
 geo_raw = api_get_chunked(f"{ACCOUNT_ID}/insights", {
     'time_increment': 1,
+    'level': 'campaign',
     'breakdowns': 'country,region',
-    'fields': 'spend,clicks,inline_link_clicks,impressions,actions',
+    'fields': 'campaign_id,spend,clicks,inline_link_clicks,impressions,actions',
     'limit': 500,
 }, start_date, end_date)
 
 geo_by_bucket = {}
 for r in geo_raw:
-    bucket = (r.get('country', 'unknown'), r.get('region', 'unknown'))
+    bucket = (r.get('campaign_id'), r.get('country', 'unknown'), r.get('region', 'unknown'))
     geo_by_bucket.setdefault(bucket, {})[r['date_start']] = r
 
 geo = []
-for (country, region), by_date in geo_by_bucket.items():
+for (campaign_id, country, region), by_date in geo_by_bucket.items():
     daily = [to_day_row(r) for _, r in sorted(by_date.items())]
-    geo.append({"country": country, "region": region, "daily": daily})
+    geo.append({"campaign_id": campaign_id, "country": country, "region": region, "daily": daily})
 
 # ============================================================
 # 8. Охват — отдельными некумулятивными запросами по стандартным периодам,

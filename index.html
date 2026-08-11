@@ -391,7 +391,7 @@
       const accDaily = filterDaily(daily, since, until);
       const totals = sumDaily(accDaily);
       const prevTotals = previousRangeTotals(since, until, daily);
-      const reach = (presetKey && currentCamp === 'all') ? REPORT.reach_by_preset[presetKey] : null;
+      const reach = presetKey ? (REPORT.reach_by_preset[currentCamp] || REPORT.reach_by_preset['all'])[presetKey] : null;
 
       const campLabel = currentCamp === 'all' ? '' : ` · ${currentCamp}`;
       document.getElementById('sub').textContent = `Facebook / Instagram · ${since} – ${until}${campLabel}`;
@@ -411,6 +411,8 @@
       const budgetPct = Math.min(100, (t.spend / planTarget) * 100);
 
       const cards = [
+        { label: 'Расход', value: fmtMoney(t.spend), delta: isAllTime ? '' : deltaBadge(deltaPct(t.spend, prevT.spend), true),
+          note: `бюджет ${fmtMoney(planTarget)} · ${budgetPct.toFixed(1)}%`, barPct: budgetPct },
         { label: 'Охват', value: reach !== null ? fmtNum(reach) : '—', note: reach === null ? 'точно только на кнопках периода' : '' },
         { label: 'Показы', value: fmtNum(t.impressions), delta: isAllTime ? '' : deltaBadge(deltaPct(t.impressions, prevT.impressions), false) },
         { label: 'Клики', value: fmtNum(t.clicks), delta: isAllTime ? '' : deltaBadge(deltaPct(t.clicks, prevT.clicks), false) },
@@ -419,8 +421,7 @@
         { label: 'CTR по ссылке', value: fmtPct(t.linkCtr) },
         { label: 'CPM', value: fmtMoney(t.cpm) },
         { label: 'Подписчики Instagram', value: fmtNum(t.followers), delta: isAllTime ? '' : deltaBadge(deltaPct(t.followers, prevT.followers), false) },
-        { label: 'Переписки', value: fmtNum(t.messages), delta: isAllTime ? '' : deltaBadge(deltaPct(t.messages, prevT.messages), false),
-          note: `бюджет ${fmtMoney(planTarget)} · ${budgetPct.toFixed(1)}%`, barPct: budgetPct },
+        { label: 'Переписки', value: fmtNum(t.messages), delta: isAllTime ? '' : deltaBadge(deltaPct(t.messages, prevT.messages), false) },
         { label: 'Цена за переписку', value: fmtMoney(t.costPerMessage), delta: isAllTime ? '' : deltaBadge(deltaPct(t.costPerMessage, prevT.costPerMessage), true) },
       ];
 

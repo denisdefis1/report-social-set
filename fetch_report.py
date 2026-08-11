@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 
 PLAN_PER_CAMP_BUDGET = 500       # общий бюджет на весь период продвижения ОДНОГО кемпа, $
 
-FETCH_SINCE = '2026-03-09'       # TODO: поставить реальную дату старта первой кампании
+FETCH_SINCE = '2026-07-01'
 CHUNK_DAYS = 30
 API_VERSION = 'v25.0'
 
@@ -292,25 +292,41 @@ for (country, region), by_date in geo_by_bucket.items():
     geo.append({"country": country, "region": region, "daily": daily})
 
 # ============================================================
-# 8. Охват — отдельными некумулятивными запросами по стандартным периодам
+# 8. Охват — отдельными некумулятивными запросами по стандартным периодам,
+# отдельно на каждый кемп (фильтр по campaign.id — без задвоения людей между
+# кампаниями одного кемпа) и один раз общий по всему аккаунту.
 # ============================================================
-def fetch_reach(since, until):
-    raw = api_get(f"{ACCOUNT_ID}/insights", {
+def fetch_reach(since, until, campaign_ids=None):
+    params = {
         'time_range': json.dumps({'since': since, 'until': until}),
         'fields': 'reach',
         'limit': 1,
-    })
+    }
+    if campaign_ids:
+        params['filtering'] = json.dumps([{'field': 'campaign.id', 'operator': 'IN', 'value': campaign_ids}])
+    raw = api_get(f"{ACCOUNT_ID}/insights", params)
     return int(raw[0].get('reach', 0)) if raw else 0
 
 
 month_start = end_date[:8] + '01'
-reach_by_preset = {
-    '7d': fetch_reach((datetime.strptime(end_date, '%Y-%m-%d') - timedelta(days=6)).strftime('%Y-%m-%d'), end_date),
-    '14d': fetch_reach((datetime.strptime(end_date, '%Y-%m-%d') - timedelta(days=13)).strftime('%Y-%m-%d'), end_date),
-    '30d': fetch_reach((datetime.strptime(end_date, '%Y-%m-%d') - timedelta(days=29)).strftime('%Y-%m-%d'), end_date),
-    'month': fetch_reach(month_start, end_date),
-    'all': fetch_reach(start_date, end_date),
+PRESET_RANGES = {
+    '7d': ((datetime.strptime(end_date, '%Y-%m-%d') - timedelta(days=6)).strftime('%Y-%m-%d'), end_date),
+    '14d': ((datetime.strptime(end_date, '%Y-%m-%d') - timedelta(days=13)).strftime('%Y-%m-%d'), end_date),
+    '30d': ((datetime.strptime(end_date, '%Y-%m-%d') - timedelta(days=29)).strftime('%Y-%m-%d'), end_date),
+    'month': (month_start, end_date),
+    'all': (start_date, end_date),
 }
+
+reach_by_preset = {
+    'all': {key: fetch_reach(since, until) for key, (since, until) in PRESET_RANGES.items()}
+}
+for camp_name in sorted(set(CAMP_KEYWORDS.values())):
+    camp_campaign_ids = [c['id'] for c in campaigns if c['camp'] == camp_name]
+    if camp_campaign_ids:
+        reach_by_preset[camp_name] = {key: fetch_reach(since, until, camp_campaign_ids) for key, (since, until) in PRESET_RANGES.items()}
+    else:
+        reach_by_preset[camp_name] = {key: 0 for key in PRESET_RANGES}
+
 
 # ============================================================
 # Итоговый файл

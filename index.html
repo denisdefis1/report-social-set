@@ -146,6 +146,8 @@
   th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
   th { color: var(--muted); font-weight: 400; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
   td.num, th.num { text-align: right; }
+  .clickable-row { cursor: pointer; }
+  .clickable-row:hover { background: #F7F3EA; }
 
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(22,43,38,0.55); backdrop-filter: blur(3px); z-index: 100; align-items: center; justify-content: center; padding: 24px; }
   .modal-overlay.open { display: flex; }
@@ -206,12 +208,12 @@
     <button class="show-more-btn" id="demo-more"></button>
   </div>
 
-  <h2 class="section-title">Страны и регионы</h2>
-  <div class="section-sub">У Meta нет разбивки по городам — region это ближайший доступный уровень (область/штат)</div>
+  <h2 class="section-title">Страны</h2>
+  <div class="section-sub">У Meta нет разбивки по городам — country это доступный уровень гео</div>
   <div class="toggle-row" id="geo-toggle"></div>
   <div class="chart-card" style="padding:8px 12px;">
     <table>
-      <thead><tr><th>Страна / регион</th><th class="num">Расход</th><th class="num">Переписки</th><th class="num">Цена</th></tr></thead>
+      <thead><tr><th>Страна</th><th class="num">Расход</th><th class="num">Переписки</th><th class="num">Цена</th></tr></thead>
       <tbody id="geo-body"></tbody>
     </table>
     <button class="show-more-btn" id="geo-more"></button>
@@ -231,6 +233,20 @@
   <div class="section-sub" id="creatives-sub">Клик по карточке — детали</div>
   <div class="creatives-grid" id="creatives-grid"></div>
   <button class="show-more-btn" id="creatives-more"></button>
+
+  <div class="modal-overlay" id="demo-popup-overlay">
+    <div class="modal-box" style="grid-template-columns: 1fr; max-width: 420px;">
+      <div class="modal-content" style="padding: 22px;">
+        <button class="modal-close" id="demo-popup-close">✕</button>
+        <div class="modal-title" id="demo-popup-title"></div>
+        <div class="modal-sub">Страны внутри этой возрастной группы за выбранный период</div>
+        <table>
+          <thead><tr><th>Страна</th><th class="num">Расход</th><th class="num">Переписки</th><th class="num">Цена</th></tr></thead>
+          <tbody id="demo-popup-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
   <div class="modal-overlay" id="modal-overlay">
     <div class="modal-box">
@@ -294,7 +310,7 @@
     let currentCamp = 'all';
     let campaignCampById = {};
     let currentSince = null, currentUntil = null, currentPresetKey = '30d';
-    let campaignsStatusFilter = 'active';
+    let campaignsStatusFilter = 'all';
     let campaignsExpanded = false;
     let openCampaigns = new Set();
     let openAdsets = new Set();
@@ -483,8 +499,8 @@
     function renderCampaignsTree() {
       const toggleEl = document.getElementById('campaigns-toggle');
       toggleEl.innerHTML = `
-        <button class="toggle-btn ${campaignsStatusFilter === 'active' ? 'active' : ''}" data-f="active">Активные</button>
-        <button class="toggle-btn ${campaignsStatusFilter === 'all' ? 'active' : ''}" data-f="all">Все</button>`;
+        <button class="toggle-btn ${campaignsStatusFilter === 'all' ? 'active' : ''}" data-f="all">Все</button>
+        <button class="toggle-btn ${campaignsStatusFilter === 'active' ? 'active' : ''}" data-f="active">Активные</button>`;
       toggleEl.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', () => { campaignsStatusFilter = b.dataset.f; renderCampaignsTree(); }));
 
       let rows = campaignsForCamp().map(campaignRow).filter(r => r.spend > 0 || r.messages > 0);
@@ -655,14 +671,17 @@
         const [age, gender] = g.key.split('|');
         const t = sumDaily(filterDaily(g.daily, currentSince, currentUntil));
         const genderLabel = gender === 'male' ? 'муж' : gender === 'female' ? 'жен' : gender;
-        return { name: `${age} · ${genderLabel}`, ...t };
+        return { age, gender, name: `${age} · ${genderLabel}`, ...t };
       }).filter(r => r.spend > 0 || r.messages > 0);
       rows = sortByMode(rows, demoSortMode);
 
       const visible = demoExpanded ? rows : rows.slice(0, 8);
       document.getElementById('demo-body').innerHTML = visible.length
-        ? visible.map(r => `<tr><td>${r.name}</td><td class="num">${fmtMoney(r.spend)}</td><td class="num">${fmtNum(r.messages)}</td><td class="num">${fmtMoney(r.costPerMessage)}</td><td class="num">${fmtPct(r.ctr)}</td></tr>`).join('')
+        ? visible.map((r, i) => `<tr class="clickable-row" data-idx="${i}"><td>${r.name} <span style="color:var(--muted);font-size:11px;">▸ страны</span></td><td class="num">${fmtMoney(r.spend)}</td><td class="num">${fmtNum(r.messages)}</td><td class="num">${fmtMoney(r.costPerMessage)}</td><td class="num">${fmtPct(r.ctr)}</td></tr>`).join('')
         : `<tr><td colspan="5" class="empty">Нет данных за выбранный период</td></tr>`;
+      document.querySelectorAll('#demo-body .clickable-row').forEach(el => {
+        el.addEventListener('click', () => openDemoCountryPopup(visible[+el.dataset.idx]));
+      });
 
       const moreBtn = document.getElementById('demo-more');
       if (rows.length > 8) {
@@ -672,14 +691,39 @@
       } else { moreBtn.style.display = 'none'; }
     }
 
+    function openDemoCountryPopup(row) {
+      const entries = currentCamp === 'all'
+        ? REPORT.age_groups
+        : REPORT.age_groups.filter(e => campaignCampById[e.campaign_id] === currentCamp);
+      const matching = entries.filter(e => e.age === row.age && e.gender === row.gender);
+
+      const byCountry = {};
+      matching.forEach(e => {
+        byCountry[e.country] = byCountry[e.country] || [];
+        byCountry[e.country] = byCountry[e.country].concat(e.daily);
+      });
+
+      const countryRows = Object.entries(byCountry).map(([country, daily]) => {
+        const t = sumDaily(filterDaily(daily, currentSince, currentUntil));
+        return { country, ...t };
+      }).filter(r => r.spend > 0 || r.messages > 0).sort((a, b) => b.messages - a.messages);
+
+      document.getElementById('demo-popup-title').textContent = row.name;
+      document.getElementById('demo-popup-body').innerHTML = countryRows.length
+        ? countryRows.map(r => `<tr><td>${r.country}</td><td class="num">${fmtMoney(r.spend)}</td><td class="num">${fmtNum(r.messages)}</td><td class="num">${fmtMoney(r.costPerMessage)}</td></tr>`).join('')
+        : `<tr><td colspan="4" class="empty">Нет данных по странам за выбранный период</td></tr>`;
+      document.getElementById('demo-popup-overlay').classList.add('open');
+    }
+    document.getElementById('demo-popup-close').addEventListener('click', () => document.getElementById('demo-popup-overlay').classList.remove('open'));
+    document.getElementById('demo-popup-overlay').addEventListener('click', (e) => { if (e.target.id === 'demo-popup-overlay') document.getElementById('demo-popup-overlay').classList.remove('open'); });
+
     function renderGeo() {
       renderRateToggle('geo-toggle', geoSortMode, (k) => { geoSortMode = k; renderGeo(); });
 
-      const grouped = groupByCampAndBucket(REPORT.geo, e => `${e.country}|${e.region}`);
+      const grouped = groupByCampAndBucket(REPORT.geo, e => e.country);
       let rows = grouped.map(g => {
-        const [country, region] = g.key.split('|');
         const t = sumDaily(filterDaily(g.daily, currentSince, currentUntil));
-        return { name: `${country} — ${region}`, ...t };
+        return { name: g.key, ...t };
       }).filter(r => r.spend > 0 || r.messages > 0);
       rows = sortByMode(rows, geoSortMode);
 

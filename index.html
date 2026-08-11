@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Social Set — рекламный дашборд</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:wght@500;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --cream: #FBF7EF;
+    --card: #FFFFFF;
+    --sand: #DAD2BE;
+    --taupe: #C5BCAB;
+    --forest: #162B26;
+    --forest-2: #303C30;
+    --brown: #4E4138;
+    --umber: #564F3F;
+    --text: #1E2B27;
+    --muted: #6B6255;
+    --border: #E4DCC9;
+    --good: #3E6B52;
+    --bad: #A4573C;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--cream);
+    color: var(--text);
+    font-family: 'Roboto', sans-serif;
+    padding: 40px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-family: 'Cormorant', serif;
+    font-weight: 700;
+    font-size: 42px;
+    letter-spacing: 0.01em;
+    margin: 0 0 2px;
+    color: var(--forest);
+  }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+  .updated { color: var(--muted); font-size: 12px; margin-bottom: 24px; }
+  h2.section-title {
+    font-family: 'Cormorant', serif; font-weight: 700; font-size: 24px;
+    margin: 52px 0 4px; color: var(--forest); display: flex; align-items: baseline; gap: 10px;
+  }
+  h2.section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); margin-left: 6px; }
+  .section-sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+
+  /* Переключатель кемпов — стилизован под багажную бирку */
+  .camp-switch { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .camp-tab {
+    background: var(--card); border: 1px solid var(--border); color: var(--muted);
+    padding: 9px 18px; border-radius: 3px; font-size: 13px; font-family: 'Roboto', sans-serif;
+    cursor: pointer; position: relative; transition: all .15s;
+  }
+  .camp-tab::before { content: ''; position: absolute; left: -1px; top: 50%; transform: translateY(-50%); width: 4px; height: 4px; border-radius: 50%; background: var(--taupe); }
+  .camp-tab { padding-left: 20px; }
+  .camp-tab.active { background: var(--forest); border-color: var(--forest); color: var(--cream); font-weight: 500; }
+  .camp-tab.active::before { background: var(--sand); }
+  .camp-tab:hover:not(.active) { border-color: var(--umber); color: var(--text); }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 28px; }
+  .preset-btn {
+    background: var(--card); border: 1px solid var(--border); color: var(--muted);
+    padding: 7px 14px; border-radius: 3px; font-size: 13px; cursor: pointer; transition: all .15s;
+  }
+  .preset-btn:hover { border-color: var(--umber); color: var(--text); }
+  .preset-btn.active { background: var(--forest-2); border-color: var(--forest-2); color: var(--cream); }
+  .date-input { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 6px 9px; border-radius: 3px; font-size: 13px; font-family: inherit; }
+
+  .cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  @media (max-width: 1000px) { .cards { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 620px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 4px;
+    padding: 16px 18px; transition: border-color .15s;
+  }
+  .card:hover { border-color: var(--umber); }
+  .card .label { color: var(--muted); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+  .card .value { font-family: 'Cormorant', serif; font-weight: 700; font-size: 26px; color: var(--forest); }
+  .card .plan-note { color: var(--muted); font-size: 11px; margin-top: 6px; }
+  .bar-track { height: 3px; border-radius: 2px; background: var(--sand); margin-top: 9px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--forest); }
+  .delta { font-size: 10px; font-weight: 500; margin-left: 6px; }
+  .delta.good { color: var(--good); }
+  .delta.bad { color: var(--bad); }
+
+  .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 20px; margin-top: 14px; }
+  .chart-title { font-size: 13px; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  .toggle-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .toggle-btn { background: var(--card); border: 1px solid var(--border); color: var(--muted); padding: 6px 14px; border-radius: 3px; font-size: 12px; cursor: pointer; }
+  .toggle-btn.active { background: var(--forest); border-color: var(--forest); color: var(--cream); }
+
+  /* Дерево кампания -> аудитория -> креатив */
+  .tree { border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  .tree-row {
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+    border-bottom: 1px solid var(--border); cursor: pointer; background: var(--card);
+    font-size: 13px;
+  }
+  .tree-row:last-child { border-bottom: none; }
+  .tree-row:hover { background: #F7F3EA; }
+  .tree-row .chevron { width: 14px; color: var(--muted); transition: transform .15s; flex-shrink: 0; }
+  .tree-row.open .chevron { transform: rotate(90deg); }
+  .tree-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tree-row .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot.ACTIVE { background: var(--good); }
+  .status-dot.other { background: var(--taupe); }
+  .tree-row .metric { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .tree-row .metric b { color: var(--text); font-weight: 500; }
+  .tree-children { display: none; background: #F7F3EA; }
+  .tree-children.open { display: block; }
+  .tree-row.level-1 { padding-left: 40px; background: #FBF9F4; }
+  .tree-row.level-1:hover { background: #F4EFE3; }
+  .creative-row-list { padding: 10px 16px 14px 64px; background: #F4EFE3; }
+  .creative-chip {
+    display: inline-flex; align-items: center; gap: 8px; background: var(--card);
+    border: 1px solid var(--border); border-radius: 3px; padding: 6px 10px 6px 6px;
+    margin: 3px 6px 3px 0; font-size: 12px; cursor: pointer;
+  }
+  .creative-chip img { width: 28px; height: 28px; object-fit: cover; border-radius: 2px; }
+  .creative-chip .no-thumb { width: 28px; height: 28px; background: var(--sand); border-radius: 2px; }
+  .empty { color: var(--muted); font-size: 13px; padding: 18px; text-align: center; }
+
+  .creatives-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  @media (max-width: 1000px) { .creatives-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 620px) { .creatives-grid { grid-template-columns: repeat(2, 1fr); } }
+  .creative-card { background: var(--card); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; cursor: pointer; transition: border-color .15s; }
+  .creative-card:hover { border-color: var(--umber); }
+  .creative-thumb { width: 100%; aspect-ratio: 4/3; background: var(--sand) center/cover no-repeat; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 11px; }
+  .creative-info { padding: 9px 10px; }
+  .creative-name { font-size: 11px; color: var(--muted); margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .creative-stats { display: flex; justify-content: space-between; font-size: 12px; }
+  .creative-stats .msg { color: var(--good); font-weight: 500; }
+
+  .show-more-btn { width: 100%; margin-top: 10px; padding: 9px; border-radius: 4px; background: var(--card); border: 1px dashed var(--border); color: var(--muted); font-size: 13px; cursor: pointer; }
+  .show-more-btn:hover { color: var(--text); border-color: var(--umber); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 400; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  td.num, th.num { text-align: right; }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(22,43,38,0.55); backdrop-filter: blur(3px); z-index: 100; align-items: center; justify-content: center; padding: 24px; }
+  .modal-overlay.open { display: flex; }
+  .modal-box { background: var(--card); border-radius: 6px; max-width: 700px; width: 100%; max-height: 88vh; overflow-y: auto; display: grid; grid-template-columns: 260px 1fr; }
+  @media (max-width: 640px) { .modal-box { grid-template-columns: 1fr; } }
+  .modal-img { background: var(--sand) center/cover no-repeat; min-height: 260px; }
+  .modal-content { padding: 24px; position: relative; }
+  .modal-close { position: absolute; top: 14px; right: 14px; background: var(--cream); border: 1px solid var(--border); color: var(--muted); width: 28px; height: 28px; border-radius: 3px; cursor: pointer; }
+  .modal-title { font-family: 'Cormorant', serif; font-weight: 700; font-size: 20px; margin: 0 0 4px; padding-right: 30px; color: var(--forest); }
+  .modal-sub { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
+  .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .modal-stat { background: var(--cream); border-radius: 3px; padding: 9px 11px; }
+  .modal-stat .l { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .modal-stat .v { font-size: 15px; font-weight: 500; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+  <h1>The Social Set</h1>
+  <div class="sub" id="sub">Facebook / Instagram · загрузка...</div>
+  <div class="updated" id="updated"></div>
+
+  <div class="camp-switch" id="camp-switch"></div>
+  <div class="controls" id="controls"></div>
+
+  <div class="cards" id="main-cards"></div>
+
+  <h2 class="section-title">Динамика по дням</h2>
+  <div class="chart-card">
+    <div class="chart-title">Расход и начатые переписки</div>
+    <canvas id="chart-spend-msg" height="90"></canvas>
+  </div>
+  <div class="grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Цена за переписку</div>
+      <canvas id="chart-cpm-msg" height="110"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">CTR</div>
+      <canvas id="chart-ctr" height="110"></canvas>
+    </div>
+  </div>
+
+  <h2 class="section-title">Кампании</h2>
+  <div class="section-sub" id="campaigns-sub">Раскрывай кампанию — увидишь аудитории, дальше креативы внутри каждой</div>
+  <div class="toggle-row" id="campaigns-toggle"></div>
+  <div class="tree" id="campaigns-tree"></div>
+  <button class="show-more-btn" id="campaigns-more"></button>
+
+  <h2 class="section-title">Демография</h2>
+  <div class="section-sub">Возраст и пол</div>
+  <div class="chart-card" style="padding:8px 12px;">
+    <table>
+      <thead><tr><th>Возраст / пол</th><th class="num">Расход</th><th class="num">Переписки</th><th class="num">Цена</th><th class="num">CTR</th></tr></thead>
+      <tbody id="demo-body"></tbody>
+    </table>
+  </div>
+
+  <h2 class="section-title">Страны и регионы</h2>
+  <div class="section-sub">У Meta нет разбивки по городам — region это ближайший доступный уровень (область/штат)</div>
+  <div class="chart-card" style="padding:8px 12px;">
+    <table>
+      <thead><tr><th>Страна / регион</th><th class="num">Расход</th><th class="num">Переписки</th><th class="num">Цена</th></tr></thead>
+      <tbody id="geo-body"></tbody>
+    </table>
+    <button class="show-more-btn" id="geo-more"></button>
+  </div>
+
+  <h2 class="section-title">Устройства</h2>
+  <div class="chart-card" style="padding:8px 12px;">
+    <table>
+      <thead><tr><th>Устройство</th><th class="num">Расход</th><th class="num">Переписки</th><th class="num">Цена</th><th class="num">CTR</th></tr></thead>
+      <tbody id="devices-body"></tbody>
+    </table>
+  </div>
+
+  <h2 class="section-title">Все креативы</h2>
+  <div class="section-sub" id="creatives-sub">Клик по карточке — детали</div>
+  <div class="creatives-grid" id="creatives-grid"></div>
+  <button class="show-more-btn" id="creatives-more"></button>
+
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-img" id="modal-img"></div>
+      <div class="modal-content">
+        <button class="modal-close" id="modal-close">✕</button>
+        <div class="modal-title" id="modal-title"></div>
+        <div class="modal-sub" id="modal-sub"></div>
+        <div class="modal-grid" id="modal-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fmtMoney = (v) => v === null || v === undefined ? '—' : '$' + v.toLocaleString('ru-RU', {maximumFractionDigits: 2});
+    const fmtNum = (v) => v === null || v === undefined ? '—' : v.toLocaleString('ru-RU');
+    const fmtPct = (v) => v === null || v === undefined ? '—' : v.toFixed(2) + '%';
+
+    function toLocalISO(d) {
+      const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+    function addDays(dateStr, delta) {
+      const d = new Date(dateStr + 'T00:00:00');
+      d.setDate(d.getDate() + delta);
+      return toLocalISO(d);
+    }
+    function filterDaily(daily, since, until) { return daily.filter(d => d.date >= since && d.date <= until); }
+
+    function sumDaily(rows) {
+      const spend = rows.reduce((s, d) => s + d.spend, 0);
+      const messages = rows.reduce((s, d) => s + d.messages, 0);
+      const followers = rows.reduce((s, d) => s + (d.followers || 0), 0);
+      const clicks = rows.reduce((s, d) => s + d.clicks, 0);
+      const linkClicks = rows.reduce((s, d) => s + (d.link_clicks || 0), 0);
+      const impressions = rows.reduce((s, d) => s + d.impressions, 0);
+      return {
+        spend: Math.round(spend * 100) / 100, messages, followers, clicks, linkClicks, impressions,
+        costPerMessage: messages ? Math.round(spend / messages * 100) / 100 : null,
+        cpm: impressions ? Math.round(spend / impressions * 1000 * 100) / 100 : null,
+        cpc: clicks ? Math.round(spend / clicks * 100) / 100 : null,
+        ctr: impressions ? Math.round(clicks / impressions * 100 * 100) / 100 : 0,
+        linkCtr: impressions ? Math.round(linkClicks / impressions * 100 * 100) / 100 : 0,
+      };
+    }
+
+    function deltaPct(cur, prev) {
+      if (!prev || cur === null || cur === undefined) return null;
+      return Math.round((cur - prev) / prev * 1000) / 10;
+    }
+    function deltaBadge(pct, higherIsBad) {
+      if (pct === null) return '';
+      if (Math.abs(pct) < 0.5) return '';
+      const isUp = pct > 0;
+      const good = higherIsBad ? !isUp : isUp;
+      return `<span class="delta ${good ? 'good' : 'bad'}">${isUp ? '↑' : '↓'} ${Math.abs(pct)}%</span>`;
+    }
+
+    let REPORT = null;
+    let charts = {};
+    let currentCamp = 'all';
+    let currentSince = null, currentUntil = null, currentPresetKey = '30d';
+    let campaignsStatusFilter = 'active';
+    let campaignsExpanded = false;
+    let openCampaigns = new Set();
+    let openAdsets = new Set();
+    let geoExpanded = false;
+    let creativesExpanded = false;
+
+    async function loadAll() {
+      const res = await fetch('data/report.json?t=' + Date.now());
+      if (!res.ok) throw new Error('report.json недоступен (' + res.status + ')');
+      REPORT = await res.json();
+
+      document.getElementById('updated').textContent = 'данные на ' + REPORT.last_updated;
+
+      renderCampSwitch();
+      const lastDate = toLocalISO(new Date());
+      renderControls(lastDate);
+      selectPreset('30d', lastDate);
+    }
+
+    function renderCampSwitch() {
+      const camps = ['all', ...REPORT.camps];
+      document.getElementById('camp-switch').innerHTML = camps.map(c => `
+        <button class="camp-tab ${c === currentCamp ? 'active' : ''}" data-camp="${c}">${c === 'all' ? 'Все кемпы' : c}</button>
+      `).join('');
+      document.querySelectorAll('.camp-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          currentCamp = btn.dataset.camp;
+          renderCampSwitch();
+          applyRange(currentSince, currentUntil, currentPresetKey);
+        });
+      });
+    }
+
+    function renderControls(lastDate) {
+      const presets = [
+        { key: '7d', label: '7 дней' }, { key: '14d', label: '14 дней' }, { key: '30d', label: '30 дней' },
+        { key: 'month', label: 'Этот месяц' }, { key: 'all', label: 'Всё время' },
+      ];
+      document.getElementById('controls').innerHTML =
+        presets.map(p => `<button class="preset-btn" data-preset="${p.key}">${p.label}</button>`).join('')
+        + `<input type="date" class="date-input" id="date-since">`
+        + `<span style="color:var(--muted)">–</span>`
+        + `<input type="date" class="date-input" id="date-until">`;
+      document.querySelectorAll('.preset-btn').forEach(btn => btn.addEventListener('click', () => selectPreset(btn.dataset.preset, lastDate)));
+      document.getElementById('date-since').addEventListener('change', onCustomDateChange);
+      document.getElementById('date-until').addEventListener('change', onCustomDateChange);
+    }
+
+    function selectPreset(key, lastDate) {
+      let since;
+      const until = lastDate;
+      if (key === '7d') since = addDays(lastDate, -6);
+      else if (key === '14d') since = addDays(lastDate, -13);
+      else if (key === '30d') since = addDays(lastDate, -29);
+      else if (key === 'month') since = lastDate.slice(0, 8) + '01';
+      else since = REPORT.fetched_range.since;
+
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.preset === key));
+      document.getElementById('date-since').value = since;
+      document.getElementById('date-until').value = until;
+      applyRange(since, until, key);
+    }
+
+    function onCustomDateChange() {
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+      const since = document.getElementById('date-since').value;
+      const until = document.getElementById('date-until').value;
+      if (since && until) applyRange(since, until, null);
+    }
+
+    function campaignsForCamp() {
+      return currentCamp === 'all' ? REPORT.campaigns : REPORT.campaigns.filter(c => c.camp === currentCamp);
+    }
+    function adsetsForCampaign(campaignId) { return REPORT.adsets.filter(a => a.campaign_id === campaignId); }
+    function creativesForAdset(adsetId) { return REPORT.creatives.filter(c => c.adset_id === adsetId); }
+
+    function mergedDaily(entities) {
+      const byDate = {};
+      entities.forEach(e => e.daily.forEach(d => {
+        const acc = byDate[d.date] || { date: d.date, spend: 0, messages: 0, followers: 0, clicks: 0, link_clicks: 0, impressions: 0 };
+        acc.spend += d.spend; acc.messages += d.messages; acc.followers += (d.followers || 0);
+        acc.clicks += d.clicks; acc.link_clicks += (d.link_clicks || 0); acc.impressions += d.impressions;
+        byDate[d.date] = acc;
+      }));
+      return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    function previousRangeTotals(since, until, daily) {
+      const days = Math.round((new Date(until + 'T00:00:00') - new Date(since + 'T00:00:00')) / 86400000) + 1;
+      const prevUntil = addDays(since, -1);
+      const prevSince = addDays(prevUntil, -(days - 1));
+      return sumDaily(filterDaily(daily, prevSince, prevUntil));
+    }
+
+    function applyRange(since, until, presetKey) {
+      currentSince = since; currentUntil = until; currentPresetKey = presetKey;
+
+      const camps = campaignsForCamp();
+      const daily = currentCamp === 'all' ? REPORT.account_daily : mergedDaily(camps);
+      const accDaily = filterDaily(daily, since, until);
+      const totals = sumDaily(accDaily);
+      const prevTotals = previousRangeTotals(since, until, daily);
+      const reach = (presetKey && currentCamp === 'all') ? REPORT.reach_by_preset[presetKey] : null;
+
+      const campLabel = currentCamp === 'all' ? '' : ` · ${currentCamp}`;
+      document.getElementById('sub').textContent = `Facebook / Instagram · ${since} – ${until}${campLabel}`;
+
+      renderMainCards(totals, prevTotals, reach, presetKey);
+      renderDailyCharts(accDaily, presetKey);
+      renderCampaignsTree();
+      renderDemo();
+      renderGeo();
+      renderDevices();
+      renderCreatives();
+    }
+
+    function renderMainCards(t, prevT, reach, presetKey) {
+      const isAllTime = presetKey === 'all';
+      const planTarget = currentCamp === 'all' ? REPORT.camps.length * REPORT.plan.per_camp_budget : REPORT.plan.per_camp_budget;
+      const budgetPct = Math.min(100, (t.spend / planTarget) * 100);
+
+      const cards = [
+        { label: 'Охват', value: reach !== null ? fmtNum(reach) : '—', note: reach === null ? 'точно только на кнопках периода' : '' },
+        { label: 'Показы', value: fmtNum(t.impressions), delta: isAllTime ? '' : deltaBadge(deltaPct(t.impressions, prevT.impressions), false) },
+        { label: 'Клики', value: fmtNum(t.clicks), delta: isAllTime ? '' : deltaBadge(deltaPct(t.clicks, prevT.clicks), false) },
+        { label: 'CTR', value: fmtPct(t.ctr) },
+        { label: 'Клики по ссылке', value: fmtNum(t.linkClicks) },
+        { label: 'CTR по ссылке', value: fmtPct(t.linkCtr) },
+        { label: 'CPM', value: fmtMoney(t.cpm) },
+        { label: 'Подписчики Instagram', value: fmtNum(t.followers), delta: isAllTime ? '' : deltaBadge(deltaPct(t.followers, prevT.followers), false) },
+        { label: 'Переписки', value: fmtNum(t.messages), delta: isAllTime ? '' : deltaBadge(deltaPct(t.messages, prevT.messages), false),
+          note: `бюджет ${fmtMoney(planTarget)} · ${budgetPct.toFixed(1)}%`, barPct: budgetPct },
+        { label: 'Цена за переписку', value: fmtMoney(t.costPerMessage), delta: isAllTime ? '' : deltaBadge(deltaPct(t.costPerMessage, prevT.costPerMessage), true) },
+      ];
+
+      document.getElementById('main-cards').innerHTML = cards.map(c => `
+        <div class="card">
+          <div class="label">${c.label}</div>
+          <div class="value">${c.value} ${c.delta || ''}</div>
+          ${c.note ? `<div class="plan-note">${c.note}</div>` : ''}
+          ${c.barPct !== undefined ? `<div class="bar-track"><div class="bar-fill" style="width:${c.barPct}%"></div></div>` : ''}
+        </div>`).join('');
+    }
+
+    function destroyCharts() { Object.values(charts).forEach(c => c && c.destroy()); charts = {}; }
+
+    function renderDailyCharts(daily, presetKey) {
+      destroyCharts();
+      const labels = daily.map(d => d.date.slice(5).split('-').reverse().join('.'));
+      const gridColor = '#E4DCC9';
+      const scalesX = { grid: { color: gridColor }, ticks: { color: '#6B6255', font: { size: 11 } } };
+
+      charts.spendMsg = new Chart(document.getElementById('chart-spend-msg'), {
+        data: {
+          labels,
+          datasets: [
+            { type: 'bar', label: 'Переписки', data: daily.map(d => d.messages), backgroundColor: '#3E6B52', yAxisID: 'y1', borderRadius: 3, maxBarThickness: 24 },
+            { type: 'line', label: 'Расход', data: daily.map(d => d.spend), borderColor: '#162B26', backgroundColor: 'rgba(22,43,38,0.08)', fill: true, tension: 0.35, yAxisID: 'y', pointRadius: 0 },
+          ],
+        },
+        options: { responsive: true, plugins: { legend: { display: false } },
+          scales: { x: scalesX, y: { position: 'left', grid: { color: gridColor }, ticks: { color: '#6B6255', callback: v => '$' + v } }, y1: { position: 'right', grid: { display: false }, ticks: { color: '#6B6255' } } } },
+      });
+
+      charts.cpm = new Chart(document.getElementById('chart-cpm-msg'), {
+        type: 'line',
+        data: { labels, datasets: [{ data: daily.map(d => d.messages ? Math.round(d.spend / d.messages * 100) / 100 : null), borderColor: '#4E4138', tension: 0.35, pointRadius: 0, spanGaps: true }] },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: scalesX, y: { grid: { color: gridColor }, ticks: { color: '#6B6255', callback: v => '$' + v } } } },
+      });
+
+      charts.ctr = new Chart(document.getElementById('chart-ctr'), {
+        type: 'line',
+        data: { labels, datasets: [{ data: daily.map(d => d.impressions ? Math.round(d.clicks / d.impressions * 100 * 100) / 100 : 0), borderColor: '#564F3F', tension: 0.35, pointRadius: 0 }] },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: scalesX, y: { grid: { color: gridColor }, ticks: { color: '#6B6255', callback: v => v + '%' } } } },
+      });
+    }
+
+    function campaignRow(c) {
+      const t = sumDaily(filterDaily(c.daily, currentSince, currentUntil));
+      return { ...c, ...t };
+    }
+
+    function renderCampaignsTree() {
+      const toggleEl = document.getElementById('campaigns-toggle');
+      toggleEl.innerHTML = `
+        <button class="toggle-btn ${campaignsStatusFilter === 'active' ? 'active' : ''}" data-f="active">Активные</button>
+        <button class="toggle-btn ${campaignsStatusFilter === 'all' ? 'active' : ''}" data-f="all">Все</button>`;
+      toggleEl.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', () => { campaignsStatusFilter = b.dataset.f; renderCampaignsTree(); }));
+
+      let rows = campaignsForCamp().map(campaignRow).filter(r => r.spend > 0 || r.messages > 0);
+      if (campaignsStatusFilter === 'active') rows = rows.filter(r => r.status === 'ACTIVE');
+      rows.sort((a, b) => b.spend - a.spend);
+
+      document.getElementById('campaigns-sub').textContent = `${rows.length} кампаний · раскрывай — увидишь аудитории, дальше креативы`;
+
+      const visible = campaignsExpanded ? rows : rows.slice(0, 10);
+      const tree = document.getElementById('campaigns-tree');
+      const moreBtn = document.getElementById('campaigns-more');
+
+      if (!rows.length) {
+        tree.innerHTML = `<div class="empty">Нет кампаний за выбранный период</div>`;
+        moreBtn.style.display = 'none';
+        return;
+      }
+
+      tree.innerHTML = visible.map(c => {
+        const isOpen = openCampaigns.has(c.id);
+        return `
+          <div>
+            <div class="tree-row level-0 ${isOpen ? 'open' : ''}" data-campaign="${c.id}">
+              <span class="chevron">▶</span>
+              <span class="status-dot ${c.status === 'ACTIVE' ? 'ACTIVE' : 'other'}"></span>
+              <span class="name">${c.name}</span>
+              <span class="metric">${fmtMoney(c.spend)}</span>
+              <span class="metric"><b>${fmtNum(c.messages)}</b> перепис.</span>
+              <span class="metric">${fmtMoney(c.costPerMessage)}</span>
+            </div>
+            <div class="tree-children ${isOpen ? 'open' : ''}" id="children-${c.id}"></div>
+          </div>`;
+      }).join('');
+
+      tree.querySelectorAll('[data-campaign]').forEach(el => {
+        el.addEventListener('click', () => {
+          const id = el.dataset.campaign;
+          if (openCampaigns.has(id)) openCampaigns.delete(id); else openCampaigns.add(id);
+          renderCampaignsTree();
+        });
+      });
+
+      visible.forEach(c => { if (openCampaigns.has(c.id)) renderAdsetsFor(c.id); });
+
+      if (rows.length > 10) {
+        moreBtn.style.display = 'block';
+        moreBtn.textContent = campaignsExpanded ? 'Свернуть' : `Показать ещё ${rows.length - 10}`;
+        moreBtn.onclick = () => { campaignsExpanded = !campaignsExpanded; renderCampaignsTree(); };
+      } else {
+        moreBtn.style.display = 'none';
+      }
+    }
+
+    function renderAdsetsFor(campaignId) {
+      const container = document.getElementById('children-' + campaignId);
+      if (!container) return;
+      const rows = adsetsForCampaign(campaignId).map(campaignRow).filter(r => r.spend > 0 || r.messages > 0).sort((a, b) => b.spend - a.spend);
+
+      if (!rows.length) {
+        container.innerHTML = `<div class="empty">Нет активности по аудиториям за период</div>`;
+        return;
+      }
+
+      container.innerHTML = rows.map(a => {
+        const isOpen = openAdsets.has(a.id);
+        return `
+          <div>
+            <div class="tree-row level-1 ${isOpen ? 'open' : ''}" data-adset="${a.id}">
+              <span class="chevron">▶</span>
+              <span class="name">${a.name}</span>
+              <span class="metric">${fmtMoney(a.spend)}</span>
+              <span class="metric"><b>${fmtNum(a.messages)}</b> перепис.</span>
+              <span class="metric">${fmtMoney(a.costPerMessage)}</span>
+            </div>
+            <div class="creative-row-list" id="creatives-${a.id}" style="display:${isOpen ? 'block' : 'none'}"></div>
+          </div>`;
+      }).join('');
+
+      container.querySelectorAll('[data-adset]').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = el.dataset.adset;
+          if (openAdsets.has(id)) openAdsets.delete(id); else openAdsets.add(id);
+          renderAdsetsFor(campaignId);
+        });
+      });
+
+      rows.forEach(a => { if (openAdsets.has(a.id)) renderCreativesFor(a.id); });
+    }
+
+    function renderCreativesFor(adsetId) {
+      const container = document.getElementById('creatives-' + adsetId);
+      if (!container) return;
+      const rows = creativesForAdset(adsetId).map(campaignRow).filter(r => r.spend > 0 || r.messages > 0).sort((a, b) => b.messages - a.messages);
+
+      if (!rows.length) {
+        container.innerHTML = `<div class="empty" style="text-align:left;padding:6px 0;">Нет активных креативов в этой аудитории за период</div>`;
+        return;
+      }
+
+      container.innerHTML = rows.map((c, i) => `
+        <span class="creative-chip" data-idx="${i}">
+          ${c.thumbnail_url ? `<img src="${c.thumbnail_url}">` : `<span class="no-thumb"></span>`}
+          <span>${c.name} · <b>${fmtNum(c.messages)}</b> перепис. · ${fmtMoney(c.costPerMessage)}</span>
+        </span>`).join('');
+
+      container.querySelectorAll('.creative-chip').forEach(el => {
+        el.addEventListener('click', (e) => { e.stopPropagation(); openCreativeModal(rows[+el.dataset.idx]); });
+      });
+    }
+
+    function openCreativeModal(c) {
+      const campaign = REPORT.campaigns.find(x => x.id === c.campaign_id);
+      const adset = REPORT.adsets.find(x => x.id === c.adset_id);
+      document.getElementById('modal-img').style.backgroundImage = c.thumbnail_url ? `url('${c.thumbnail_url}')` : '';
+      document.getElementById('modal-title').textContent = c.name;
+      document.getElementById('modal-sub').textContent = `Кампания: ${campaign ? campaign.name : '—'} · Аудитория: ${adset ? adset.name : '—'}`;
+      const stats = [
+        { l: 'Расход', v: fmtMoney(c.spend) }, { l: 'Показы', v: fmtNum(c.impressions) },
+        { l: 'Клики', v: fmtNum(c.clicks) }, { l: 'Клики по ссылке', v: fmtNum(c.linkClicks) },
+        { l: 'CTR', v: fmtPct(c.ctr) }, { l: 'Переписки', v: fmtNum(c.messages) },
+        { l: 'Цена за переписку', v: fmtMoney(c.costPerMessage) }, { l: 'Подписчики', v: fmtNum(c.followers) },
+      ];
+      document.getElementById('modal-grid').innerHTML = stats.map(s => `<div class="modal-stat"><div class="l">${s.l}</div><div class="v">${s.v}</div></div>`).join('');
+      document.getElementById('modal-overlay').classList.add('open');
+    }
+    document.getElementById('modal-close').addEventListener('click', () => document.getElementById('modal-overlay').classList.remove('open'));
+    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') document.getElementById('modal-overlay').classList.remove('open'); });
+
+    function renderDemo() {
+      const rows = REPORT.age_groups.map(g => {
+        const t = sumDaily(filterDaily(g.daily, currentSince, currentUntil));
+        const genderLabel = g.gender === 'male' ? 'муж' : g.gender === 'female' ? 'жен' : g.gender;
+        return { name: `${g.age} · ${genderLabel}`, ...t };
+      }).filter(r => r.spend > 0 || r.messages > 0).sort((a, b) => b.messages - a.messages);
+
+      document.getElementById('demo-body').innerHTML = rows.length
+        ? rows.map(r => `<tr><td>${r.name}</td><td class="num">${fmtMoney(r.spend)}</td><td class="num">${fmtNum(r.messages)}</td><td class="num">${fmtMoney(r.costPerMessage)}</td><td class="num">${fmtPct(r.ctr)}</td></tr>`).join('')
+        : `<tr><td colspan="5" class="empty">Нет данных за выбранный период</td></tr>`;
+    }
+
+    function renderGeo() {
+      const rows = REPORT.geo.map(g => {
+        const t = sumDaily(filterDaily(g.daily, currentSince, currentUntil));
+        return { name: `${g.country} — ${g.region}`, ...t };
+      }).filter(r => r.spend > 0 || r.messages > 0).sort((a, b) => b.spend - a.spend);
+
+      const visible = geoExpanded ? rows : rows.slice(0, 10);
+      document.getElementById('geo-body').innerHTML = visible.length
+        ? visible.map(r => `<tr><td>${r.name}</td><td class="num">${fmtMoney(r.spend)}</td><td class="num">${fmtNum(r.messages)}</td><td class="num">${fmtMoney(r.costPerMessage)}</td></tr>`).join('')
+        : `<tr><td colspan="4" class="empty">Нет данных за выбранный период</td></tr>`;
+
+      const moreBtn = document.getElementById('geo-more');
+      if (rows.length > 10) {
+        moreBtn.style.display = 'block';
+        moreBtn.textContent = geoExpanded ? 'Свернуть' : `Показать ещё ${rows.length - 10}`;
+        moreBtn.onclick = () => { geoExpanded = !geoExpanded; renderGeo(); };
+      } else { moreBtn.style.display = 'none'; }
+    }
+
+    const DEVICE_LABELS = { mobile_app: 'Mobile App', desktop: 'Desktop', tablet: 'Tablet', connected_tv: 'Connected TV', unknown: 'Другое' };
+
+    function renderDevices() {
+      const rows = REPORT.devices.map(d => {
+        const t = sumDaily(filterDaily(d.daily, currentSince, currentUntil));
+        return { name: DEVICE_LABELS[d.device] || d.device, ...t };
+      }).filter(r => r.spend > 0 || r.messages > 0).sort((a, b) => b.spend - a.spend);
+
+      document.getElementById('devices-body').innerHTML = rows.length
+        ? rows.map(r => `<tr><td>${r.name}</td><td class="num">${fmtMoney(r.spend)}</td><td class="num">${fmtNum(r.messages)}</td><td class="num">${fmtMoney(r.costPerMessage)}</td><td class="num">${fmtPct(r.ctr)}</td></tr>`).join('')
+        : `<tr><td colspan="5" class="empty">Нет данных за выбранный период</td></tr>`;
+    }
+
+    function renderCreatives() {
+      let rows = REPORT.creatives.map(campaignRow).filter(r => r.spend > 0 || r.messages > 0);
+      if (currentCamp !== 'all') {
+        const campCampaignIds = new Set(campaignsForCamp().map(c => c.id));
+        rows = rows.filter(r => campCampaignIds.has(r.campaign_id));
+      }
+      rows.sort((a, b) => b.messages - a.messages);
+
+      document.getElementById('creatives-sub').textContent = `${rows.length} объявлений за период · клик — детали`;
+      const visible = creativesExpanded ? rows : rows.slice(0, 10);
+      const grid = document.getElementById('creatives-grid');
+      const moreBtn = document.getElementById('creatives-more');
+
+      if (!rows.length) {
+        grid.innerHTML = `<div class="empty">Нет данных за выбранный период</div>`;
+        moreBtn.style.display = 'none';
+        return;
+      }
+
+      grid.innerHTML = visible.map((c, i) => `
+        <div class="creative-card" data-idx="${i}">
+          <div class="creative-thumb" style="${c.thumbnail_url ? `background-image:url('${c.thumbnail_url}')` : ''}">${c.thumbnail_url ? '' : 'нет превью'}</div>
+          <div class="creative-info">
+            <div class="creative-name" title="${c.name}">${c.name}</div>
+            <div class="creative-stats"><span class="msg">${fmtNum(c.messages)} перепис.</span><span>${fmtMoney(c.costPerMessage)}</span></div>
+          </div>
+        </div>`).join('');
+      grid.querySelectorAll('.creative-card').forEach(el => el.addEventListener('click', () => openCreativeModal(visible[+el.dataset.idx])));
+
+      if (rows.length > 10) {
+        moreBtn.style.display = 'block';
+        moreBtn.textContent = creativesExpanded ? 'Свернуть' : `Показать ещё ${rows.length - 10}`;
+        moreBtn.onclick = () => { creativesExpanded = !creativesExpanded; renderCreatives(); };
+      } else { moreBtn.style.display = 'none'; }
+    }
+
+    loadAll().catch(err => {
+      document.getElementById('sub').textContent = 'Ошибка загрузки данных: ' + err.message;
+    });
+  </script>
+</body>
+</html>

@@ -368,17 +368,16 @@ if campaigns_without_camp:
     print(f"Кампании без определённого кемпа ({len(campaigns_without_camp)}): {campaigns_without_camp}")
 
 # ============================================================
-# ДИАГНОСТИКА action_type — ОБЯЗАТЕЛЬНО раскомментировать на первом запуске,
-# чтобы проверить правильность MESSAGING_ACTION_TYPES и FOLLOWER_ACTION_TYPES.
-# Сравнить цифры с тем, что Ads Manager показывает как "Начатые переписки" и
-# "Подписчики", поправить константы наверху файла, закомментировать блок обратно.
+# ДИАГНОСТИКА action_type — раскомментировано специально для проверки подписчиков.
+# После того как найдём правильный тип и впишем в FOLLOWER_ACTION_TYPES —
+# этот блок нужно закомментировать обратно (вернуть # в начало каждой строки).
 # ============================================================
-# action_type_totals = {}
-# for r in account_raw:
-#     for action in r.get('actions', []) or []:
-#         t = action.get('action_type')
-#         v = int(action.get('value', 0))
-#         action_type_totals[t] = action_type_totals.get(t, 0) + v
-# print("Все типы конверсий за период и их суммы:")
-# for t, v in sorted(action_type_totals.items(), key=lambda x: -x[1]):
-#     print(f"  {t}: {v}")
+action_type_totals = {}
+for r in account_raw:
+    for action in r.get('actions', []) or []:
+        t = action.get('action_type')
+        v = int(action.get('value', 0))
+        action_type_totals[t] = action_type_totals.get(t, 0) + v
+print("Все типы конверсий за период и их суммы:")
+for t, v in sorted(action_type_totals.items(), key=lambda x: -x[1]):
+    print(f"  {t}: {v}")

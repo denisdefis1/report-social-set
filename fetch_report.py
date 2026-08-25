@@ -32,6 +32,7 @@ CAMP_KEYWORDS = {
     'БАКУ': 'Баку',
     'КЕЙПТАУН': 'Кейптаун',
     'ГРУЗИЯ': 'Грузия',
+    'ТУРЦИЯ': 'Турция',
 }
 
 ACCESS_TOKEN = os.getenv('FACEBOOK_ACCESS_TOKEN')
